@@ -13,7 +13,9 @@ import {
     RotateCcw,
     MoreVertical,
     Target,
-    ListTodo
+    ListTodo,
+    X,
+    Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
