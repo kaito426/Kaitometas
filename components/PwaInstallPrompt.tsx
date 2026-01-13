@@ -13,34 +13,31 @@ export function PwaInstallPrompt() {
     const [showPrompt, setShowPrompt] = useState(false);
 
     useEffect(() => {
-        // Check if running as installed PWA
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-            || (window.navigator as any).standalone === true;
-
-        if (isStandalone) {
-            localStorage.setItem(INSTALLED_KEY, "true");
-            return;
-        }
-
-        // Check if already installed
-        if (localStorage.getItem(INSTALLED_KEY) === "true") {
-            return;
-        }
-
-        // Check if dismissed recently
-        const dismissedAt = localStorage.getItem(DISMISS_KEY);
-        if (dismissedAt) {
-            const dismissDate = new Date(dismissedAt);
-            const now = new Date();
-            const diffDays = Math.floor((now.getTime() - dismissDate.getTime()) / (1000 * 60 * 60 * 24));
-            if (diffDays < DISMISS_DAYS) {
-                return;
-            }
-        }
-
         const handler = (e: any) => {
+            // Prevent default browser install prompt
             e.preventDefault();
             setDeferredPrompt(e);
+
+            // Check if running as installed PWA
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                || (window.navigator as any).standalone === true;
+
+            if (isStandalone) {
+                return;
+            }
+
+            // Check if dismissed recently
+            const dismissedAt = localStorage.getItem(DISMISS_KEY);
+            if (dismissedAt) {
+                const dismissDate = new Date(dismissedAt);
+                const now = new Date();
+                const diffDays = Math.floor((now.getTime() - dismissDate.getTime()) / (1000 * 60 * 60 * 24));
+                if (diffDays < DISMISS_DAYS) {
+                    return;
+                }
+            }
+
+            // If we got here, show the prompt
             setShowPrompt(true);
         };
 

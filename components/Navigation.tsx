@@ -9,12 +9,14 @@ import {
     Wallet,
     CheckSquare,
     Settings,
-    Target
+    Target,
+    ListTodo
 } from "lucide-react";
 
 const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/metas", label: "Metas", icon: Target },
+    { href: "/objetivos", label: "Objetivos", icon: ListTodo },
     { href: "/vendas", label: "Vendas", icon: TrendingUp },
     { href: "/gastos", label: "Gastos", icon: Wallet },
     { href: "/tarefas", label: "Tarefas", icon: CheckSquare },
