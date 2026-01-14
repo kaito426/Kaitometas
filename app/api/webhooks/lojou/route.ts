@@ -5,18 +5,40 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function POST(req: Request) {
+    if (!supabaseUrl || !supabaseServiceKey) {
+        console.error('Webhook Error: Missing environment variables');
+        return NextResponse.json({ success: false, error: 'Configuração do servidor incompleta (Env Vars)' }, { status: 500 });
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     let body: any = {};
+    let rawText = '';
 
     try {
-        body = await req.json();
+        rawText = await req.text();
 
-        // Log the request for debugging
+        // Log the raw request immediately for debugging
+        await supabase.from('webhook_logs').insert([
+            {
+                payload: { rawText },
+                headers: Object.fromEntries(req.headers.entries()),
+                path: '/api/webhooks/lojou/raw'
+            }
+        ]);
+
+        try {
+            body = JSON.parse(rawText);
+        } catch (e) {
+            console.error('Failed to parse JSON:', rawText);
+            return NextResponse.json({ success: false, error: 'Invalid JSON' }, { status: 400 });
+        }
+
+        // Log the parsed body
         await supabase.from('webhook_logs').insert([
             {
                 payload: body,
                 headers: Object.fromEntries(req.headers.entries()),
-                path: '/api/webhooks/lojou'
+                path: '/api/webhooks/lojou/parsed'
             }
         ]);
 

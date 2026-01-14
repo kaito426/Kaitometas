@@ -8,6 +8,17 @@ export async function middleware(request: NextRequest) {
         },
     })
 
+    // 1. Check for public routes FIRST (before any Supabase calls for performance and reliability)
+    const pathname = request.nextUrl.pathname
+    const isPublicRoute = [
+        '/api/webhooks/lojou',
+        '/api/webhooks/lojou/'
+    ].includes(pathname)
+
+    if (isPublicRoute) {
+        return response
+    }
+
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -57,16 +68,15 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     console.log('[Middleware]', {
-        path: request.nextUrl.pathname,
+        path: pathname,
         hasUser: !!user,
         userId: user?.id,
     });
 
     // Protect internal routes
-    const isAuthPage = request.nextUrl.pathname.startsWith('/login')
-    const isPublicRoute = ['/api/webhooks/lojou'].includes(request.nextUrl.pathname)
+    const isAuthPage = pathname.startsWith('/login')
 
-    if (!user && !isAuthPage && !isPublicRoute) {
+    if (!user && !isAuthPage) {
         console.log('[Middleware] No user, redirecting to /login');
         return NextResponse.redirect(new URL('/login', request.url))
     }

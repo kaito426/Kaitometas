@@ -21,6 +21,7 @@ interface Task {
     is_mandatory: boolean;
     is_completed: boolean;
     due_date: string;
+    completed_at?: string | null;
 }
 
 export default function TarefasPage() {
@@ -85,9 +86,13 @@ export default function TarefasPage() {
 
     async function toggleTask(task: Task) {
         try {
+            const isCompleting = !task.is_completed;
             const { error } = await supabase
                 .from("tasks")
-                .update({ is_completed: !task.is_completed })
+                .update({
+                    is_completed: isCompleting,
+                    completed_at: isCompleting ? new Date().toISOString() : null
+                })
                 .eq("id", task.id);
 
             if (error) throw error;
