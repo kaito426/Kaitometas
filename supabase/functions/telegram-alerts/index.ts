@@ -1,6 +1,7 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
-Deno.serve(async (req) => {
+Deno.serve(async (_req: Request) => {
     try {
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
@@ -11,25 +12,26 @@ Deno.serve(async (req) => {
         const chatId = Deno.env.get('TELEGRAM_CHAT_ID')
 
         if (!botToken || !chatId) {
-            return new Response(JSON.stringify({ error: 'Telegram credentials missing' }), { status: 400 })
+            throw new Error('Missing Telegram configuration')
         }
 
-        // Get mandatory tasks not completed for today
+        // 1. Check for pending mandatory tasks for today
         const today = new Date().toISOString().split('T')[0]
-        const { data: tasks, error } = await supabase
+        const { data: tasks, error: tasksError } = await supabase
             .from('tasks')
-            .select('title')
+            .select('*')
             .eq('due_date', today)
             .eq('is_mandatory', true)
             .eq('is_completed', false)
 
-        if (error) throw error
+        if (tasksError) throw tasksError
 
         if (tasks && tasks.length > 0) {
-            const taskList = tasks.map(t => `• ${t.title}`).join('\n')
-            const message = `🚨 *KAITO VISION - ALERTA DE DISCIPLINA*\n\nVocê tem tarefas obrigatórias pendentes para hoje:\n\n${taskList}\n\nNão falhe com a sua visão! 👊`
+            const taskList = tasks.map((t: any) => `• ${t.title}`).join('\n')
+            const message = `⚠️ *Atenção Kaito!*\n\nVocê tem ${tasks.length} tarefas obrigatórias pendentes para hoje:\n\n${taskList}\n\n_Não deixe para depois!_`
 
-            const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            // Send Telegram message
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -39,40 +41,42 @@ Deno.serve(async (req) => {
                 })
             })
 
-            const result = await response.json()
+            // Also trigger a push notification via the other function
+            // We use the internal URL if possible, or the public one
+            const projectUrl = Deno.env.get('SUPABASE_URL') ?? ''
+            const functionUrl = `${projectUrl}/functions/v1/send-notification`
 
-            // Trigger Web Push Notification
-            try {
-                const { data: goalData } = await supabase
-                    .from('goals')
-                    .select('user_id')
-                    .eq('type', 'annual')
-                    .single();
+            // Get the user ID from the first task (assuming all tasks belong to the same user for now)
+            const userId = tasks[0].user_id
 
-                if (goalData?.user_id) {
-                    await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
-                        },
-                        body: JSON.stringify({
-                            userId: goalData.user_id,
-                            title: '⏰ Tarefa Pendente!',
-                            body: `Você tem ${tasks.length} tarefas obrigatórias pendentes para hoje.`,
-                            url: '/tarefas'
-                        })
-                    });
-                }
-            } catch (notifyError) {
-                console.error('Failed to send push notification:', notifyError);
-            }
+            await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+                },
+                body: JSON.stringify({
+                    userId: userId,
+                    title: '⚠️ Tarefas Pendentes',
+                    body: `Você tem ${tasks.length} tarefas obrigatórias para hoje!`,
+                    url: '/tarefas'
+                })
+            })
 
-            return new Response(JSON.stringify({ success: true, result }), { status: 200 })
+            return new Response(JSON.stringify({ success: true, tasks_count: tasks.length }), {
+                headers: { 'Content-Type': 'application/json' },
+            })
         }
 
-        return new Response(JSON.stringify({ success: true, message: 'No pending mandatory tasks' }), { status: 200 })
-    } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+        return new Response(JSON.stringify({ success: true, message: 'No pending mandatory tasks' }), {
+            headers: { 'Content-Type': 'application/json' },
+        })
+
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return new Response(JSON.stringify({ error: errorMessage }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+        })
     }
 })

@@ -96,6 +96,15 @@ export default function TarefasPage() {
                 .eq("id", task.id);
 
             if (error) throw error;
+
+            // Award XP if completed
+            if (isCompleting) {
+                await supabase.rpc('award_xp', {
+                    target_user_id: (await supabase.auth.getUser()).data.user?.id,
+                    xp_amount: 50
+                });
+            }
+
             fetchTasks();
         } catch (error) {
             console.error("Error updating task:", error);

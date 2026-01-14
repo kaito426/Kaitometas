@@ -34,7 +34,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className="dark" suppressHydrationWarning>
-      <body className={cn(inter.className, "min-h-screen pb-20 md:pb-0 md:pl-64")}>
+      <body className={cn(inter.className, "min-h-screen pb-20 md:pb-0 md:pl-64")} suppressHydrationWarning>
         <ServiceWorkerRegistrar />
         <Navigation />
         <main className="p-4 md:p-8 max-w-7xl mx-auto">

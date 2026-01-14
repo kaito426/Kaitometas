@@ -8,19 +8,24 @@ const DISMISS_KEY = "kaito_pwa_dismissed";
 const INSTALLED_KEY = "kaito_pwa_installed";
 const DISMISS_DAYS = 7;
 
+interface BeforeInstallPromptEvent extends Event {
+    prompt: () => Promise<void>;
+    userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
 export function PwaInstallPrompt() {
-    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+    const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
     const [showPrompt, setShowPrompt] = useState(false);
 
     useEffect(() => {
-        const handler = (e: any) => {
+        const handler = (e: Event) => {
             // Prevent default browser install prompt
             e.preventDefault();
-            setDeferredPrompt(e);
+            setDeferredPrompt(e as BeforeInstallPromptEvent);
 
             // Check if running as installed PWA
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-                || (window.navigator as any).standalone === true;
+                || ('standalone' in window.navigator && (window.navigator as unknown as { standalone: boolean }).standalone === true);
 
             if (isStandalone) {
                 return;

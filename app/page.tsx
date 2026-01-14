@@ -15,6 +15,7 @@ import {
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { GoalManager } from "@/components/GoalManager";
+import { AICoach } from "@/components/AICoach";
 
 interface Goal {
   id: string;
@@ -92,6 +93,24 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
+
+    // Real-time subscription for sales updates
+    const salesChannel = supabase
+      .channel('sales-realtime')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'sales'
+      }, (payload) => {
+        console.log('Nova venda detectada:', payload.new);
+        // Update total sales with the new sale amount
+        setTotalSales(prev => prev + Number(payload.new.amount));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(salesChannel);
+    };
   }, []);
 
   if (loading) {
@@ -186,6 +205,9 @@ export default function Dashboard() {
           <GoalManager onUpdate={fetchData} />
         </div>
       </motion.div>
+
+      {/* AI Coach Section */}
+      <AICoach />
 
       {/* Secondary Goals Grid */}
       {secondaryGoals.length > 0 && (

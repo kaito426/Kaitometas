@@ -11,8 +11,6 @@ import {
     Trash2,
     TrendingUp,
     RotateCcw,
-    MoreVertical,
-    Target,
     ListTodo,
     X,
     Loader2

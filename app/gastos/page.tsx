@@ -11,7 +11,9 @@ import {
     Calendar as CalendarIcon,
     Tag,
     MoreVertical,
-    PieChart
+    PieChart,
+    Sparkles,
+    ShieldAlert
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
@@ -43,6 +45,8 @@ export default function GastosPage() {
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState("traffic");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiInsight, setAiInsight] = useState<string | null>(null);
 
     useEffect(() => {
         fetchExpenses();
@@ -92,6 +96,27 @@ export default function GastosPage() {
         }
     }
 
+    async function runFinancialAnalysis() {
+        setAiLoading(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-coach`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
+                body: JSON.stringify({ type: 'financial' })
+            });
+            const data = await response.json();
+            if (data.content) setAiInsight(data.content);
+        } catch (error) {
+            console.error("Error running financial analysis:", error);
+        } finally {
+            setAiLoading(false);
+        }
+    }
+
     const totalExpenses = expenses.reduce((acc, exp) => acc + Number(exp.amount), 0);
 
     return (
@@ -130,6 +155,53 @@ export default function GastosPage() {
                     </p>
                 </div>
             </div>
+
+            {/* AI Financial Analysis Section */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass-card p-6 rounded-2xl border-primary/20 bg-primary/5"
+            >
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30">
+                            <ShieldAlert className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-white">Análise de Vazamentos (IA)</h3>
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Onde você está perdendo dinheiro?</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={runFinancialAnalysis}
+                        disabled={aiLoading}
+                        className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2 rounded-xl text-xs font-bold transition-all border border-primary/20"
+                    >
+                        {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        Analisar Gastos
+                    </button>
+                </div>
+
+                <AnimatePresence mode="wait">
+                    {aiInsight ? (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="bg-white/5 p-4 rounded-xl border border-white/5"
+                        >
+                            <p className="text-sm text-white/90 leading-relaxed italic">
+                                &quot;{aiInsight}&quot;
+                            </p>
+                        </motion.div>
+                    ) : (
+                        !aiLoading && (
+                            <p className="text-xs text-muted-foreground text-center py-4">
+                                Clique no botão acima para que a IA analise seus gastos e sugira economias.
+                            </p>
+                        )
+                    )}
+                </AnimatePresence>
+            </motion.div>
 
             <AnimatePresence>
                 {showForm && (

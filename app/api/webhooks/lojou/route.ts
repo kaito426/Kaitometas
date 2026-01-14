@@ -11,6 +11,7 @@ export async function POST(req: Request) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let body: any = {};
     let rawText = '';
 
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
         try {
             body = JSON.parse(rawText);
         } catch (e) {
-            console.error('Failed to parse JSON:', rawText);
+            console.error('Failed to parse JSON:', rawText, e);
             return NextResponse.json({ success: false, error: 'Invalid JSON' }, { status: 400 });
         }
 
@@ -53,8 +54,13 @@ export async function POST(req: Request) {
         } = body;
 
         // MANDATORY: Only process approved sales
-        // Adding 'completed' and 'finalized' as potential statuses
-        const isApproved = ['approved', 'paid', 'completed', 'finalized'].includes(status?.toLowerCase());
+        // Extended list of potential success statuses from various payment platforms
+        const successStatuses = [
+            'approved', 'paid', 'completed', 'finalized',
+            'success', 'confirmed', 'complete', 'processed',
+            'settled', 'captured', 'accepted'
+        ];
+        const isApproved = successStatuses.includes(status?.toLowerCase?.() || '');
 
         if (isApproved) {
             // MANDATORY: Deduplication using order_number or transaction_id
@@ -94,6 +100,12 @@ export async function POST(req: Request) {
 
             if (error) throw error;
 
+            // Award XP for sale (200 XP)
+            await supabase.rpc('award_xp', {
+                target_user_id: userId,
+                xp_amount: 200
+            });
+
             // Trigger Web Push Notification
             try {
                 if (userId) {
@@ -119,18 +131,19 @@ export async function POST(req: Request) {
         }
 
         return NextResponse.json({ success: true, message: `Status ignorado: ${status}` });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Webhook Error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
         // Log error even if processing fails
         await supabase.from('webhook_logs').insert([
             {
-                payload: { error: error.message, rawBody: body },
+                payload: { error: errorMessage, rawBody: body },
                 headers: Object.fromEntries(req.headers.entries()),
                 path: '/api/webhooks/lojou/error'
             }
         ]);
 
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
     }
 }

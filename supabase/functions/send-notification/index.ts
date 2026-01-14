@@ -1,16 +1,35 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
-import * as webpush from 'https://esm.sh/web-push@3.6.7'
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+import webpush from 'npm:web-push@3.6.7'
 
-Deno.serve(async (req) => {
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+Deno.serve(async (req: Request) => {
+    if (req.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders })
+    }
+
     try {
-        const { title, body, url, userId } = await req.json()
+        const { title, body, url, userId, tag } = await req.json()
 
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        // Get user's push subscriptions
+        // 1. Always store notification in DB for the bell icon
+        await supabase.from('notifications').insert([{
+            user_id: userId,
+            title,
+            body,
+            url,
+            is_read: false
+        }]);
+
+        // 2. Get user's push subscriptions
         const { data: subscriptions, error } = await supabase
             .from('push_subscriptions')
             .select('subscription')
@@ -19,29 +38,86 @@ Deno.serve(async (req) => {
         if (error) throw error
 
         if (!subscriptions || subscriptions.length === 0) {
-            return new Response(JSON.stringify({ message: 'No subscriptions found' }), { status: 200 })
+            return new Response(JSON.stringify({
+                success: true,
+                message: 'Notification stored in DB, but no push subscriptions found'
+            }), {
+                status: 200,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
         }
 
+        const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+        const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+        const adminEmail = Deno.env.get('ADMIN_EMAIL') || 'mailto:admin@example.com';
+
+        if (!vapidPublicKey || !vapidPrivateKey) {
+            return new Response(JSON.stringify({
+                success: true,
+                warning: 'Notification stored in DB, but VAPID keys not configured for push'
+            }), {
+                status: 200,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+        }
+
+        // Configure web-push
         webpush.setVapidDetails(
-            'mailto:example@yourdomain.com',
-            Deno.env.get('VAPID_PUBLIC_KEY') ?? '',
-            Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
-        )
+            adminEmail,
+            vapidPublicKey,
+            vapidPrivateKey
+        );
 
-        const notifications = subscriptions.map((sub) => {
-            return webpush.sendNotification(
-                JSON.parse(sub.subscription),
-                JSON.stringify({ title, body, url })
-            ).catch(err => {
-                console.error('Error sending notification:', err)
-                // Optionally remove invalid subscription from DB
-            })
+        const results: Array<{ endpoint?: string; status?: number; error?: string }> = [];
+
+        for (const sub of subscriptions) {
+            try {
+                const subscription = JSON.parse(sub.subscription);
+
+                // Create the payload
+                const payload = JSON.stringify({
+                    title,
+                    body,
+                    url,
+                    tag: tag || 'kaito-sale-' + Date.now()
+                });
+
+                // Send notification using web-push library (handles encryption)
+                await webpush.sendNotification(subscription, payload);
+
+                results.push({
+                    endpoint: subscription.endpoint.substring(0, 60) + '...',
+                    status: 201
+                });
+
+            } catch (err: any) {
+                console.error('Push Error:', err);
+
+                // Check for expired subscription (410 Gone or 404 Not Found)
+                if (err.statusCode === 410 || err.statusCode === 404) {
+                    await supabase
+                        .from('push_subscriptions')
+                        .delete()
+                        .eq('subscription', sub.subscription);
+                }
+
+                results.push({ error: err.message || 'Unknown push error' });
+            }
+        }
+
+        return new Response(JSON.stringify({
+            success: true,
+            message: 'Notification stored and push attempted',
+            results
+        }), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
-
-        await Promise.all(notifications)
-
-        return new Response(JSON.stringify({ success: true }), { status: 200 })
-    } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return new Response(JSON.stringify({ error: errorMessage }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
     }
 })

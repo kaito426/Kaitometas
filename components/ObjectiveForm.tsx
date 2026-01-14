@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Loader2, X, Check, DollarSign, ListTodo } from "lucide-react";
+import { Loader2, X, DollarSign, ListTodo, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,31 @@ export function ObjectiveForm({ onClose, onSuccess }: ObjectiveFormProps) {
     const [isMonetary, setIsMonetary] = useState<boolean | null>(null);
     const [targetAmount, setTargetAmount] = useState("");
     const [loading, setLoading] = useState(false);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [generatedTasks, setGeneratedTasks] = useState<{ title: string }[]>([]);
+
+    const generateAiTasks = async () => {
+        if (!name) return;
+        setAiLoading(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-coach`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
+                body: JSON.stringify({ type: 'task_breakdown', objectiveName: name })
+            });
+            const data = await response.json();
+            const tasks = JSON.parse(data.content);
+            setGeneratedTasks(tasks);
+        } catch (error) {
+            console.error("Error generating tasks:", error);
+        } finally {
+            setAiLoading(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,6 +61,21 @@ export function ObjectiveForm({ onClose, onSuccess }: ObjectiveFormProps) {
             ]);
 
             if (error) throw error;
+
+            // If there are generated tasks, insert them
+            if (generatedTasks.length > 0) {
+                const { data: { user } } = await supabase.auth.getUser();
+                const today = new Date().toISOString().split('T')[0];
+                const tasksToInsert = generatedTasks.map(t => ({
+                    title: t.title,
+                    user_id: user?.id,
+                    due_date: today,
+                    is_completed: false,
+                    is_mandatory: false
+                }));
+                await supabase.from("tasks").insert(tasksToInsert);
+            }
+
             onSuccess();
             onClose();
         } catch (error) {
@@ -139,6 +179,32 @@ export function ObjectiveForm({ onClose, onSuccess }: ObjectiveFormProps) {
                             </motion.div>
                         )}
                     </AnimatePresence>
+
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium text-muted-foreground">Plano de Ação (IA)</label>
+                            <button
+                                type="button"
+                                onClick={generateAiTasks}
+                                disabled={aiLoading || !name}
+                                className="text-[10px] uppercase tracking-widest font-bold text-primary hover:text-primary/80 flex items-center gap-1 disabled:opacity-50"
+                            >
+                                {aiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                Gerar com IA
+                            </button>
+                        </div>
+
+                        {generatedTasks.length > 0 && (
+                            <div className="bg-white/5 rounded-xl p-3 border border-white/5 space-y-2">
+                                {generatedTasks.map((t, i) => (
+                                    <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <div className="w-1 h-1 bg-primary rounded-full" />
+                                        {t.title}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
                     <button
                         type="submit"

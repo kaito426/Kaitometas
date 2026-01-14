@@ -8,6 +8,7 @@ export function PushNotificationManager() {
     const [isSupported, setIsSupported] = useState(false);
     const [subscription, setSubscription] = useState<PushSubscription | null>(null);
     const [loading, setLoading] = useState(true);
+    const [testing, setTesting] = useState(false);
 
     useEffect(() => {
         if ("serviceWorker" in navigator && "PushManager" in window) {
@@ -72,6 +73,36 @@ export function PushNotificationManager() {
         }
     }
 
+    async function testNotification() {
+        setTesting(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-notification`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({
+                    userId: session.user.id,
+                    title: '🚀 Teste de Notificação!',
+                    body: 'Se você está vendo isso, suas notificações estão funcionando!',
+                    url: '/configuracoes'
+                })
+            });
+            const data = await response.json();
+            console.log('Test notification result:', data);
+            alert('Notificação enviada! Verifique se chegou.');
+        } catch (error) {
+            console.error('Failed to send test notification:', error);
+            alert('Erro ao enviar notificação de teste.');
+        } finally {
+            setTesting(false);
+        }
+    }
+
     if (!isSupported) return null;
 
     return (
@@ -92,8 +123,8 @@ export function PushNotificationManager() {
                 onClick={subscription ? unsubscribeFromPush : subscribeToPush}
                 disabled={loading}
                 className={`px-6 py-2 rounded-xl font-semibold transition-all flex items-center gap-2 ${subscription
-                        ? 'bg-white/5 hover:bg-white/10 text-white'
-                        : 'bg-primary hover:bg-primary/90 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]'
+                    ? 'bg-white/5 hover:bg-white/10 text-white'
+                    : 'bg-primary hover:bg-primary/90 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]'
                     }`}
             >
                 {loading ? (
@@ -104,6 +135,16 @@ export function PushNotificationManager() {
                     "Ativar Alertas"
                 )}
             </button>
+
+            {subscription && (
+                <button
+                    onClick={testNotification}
+                    disabled={testing}
+                    className="px-4 py-2 rounded-xl font-semibold transition-all flex items-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-sm"
+                >
+                    {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Testar"}
+                </button>
+            )}
         </div>
     );
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kaito-vision-v3';
+const CACHE_NAME = 'kaito-vision-v4';
 const STATIC_ASSETS = [
     '/',
     '/manifest.json',
@@ -65,10 +65,23 @@ self.addEventListener('push', function (event) {
             body: data.body,
             icon: '/icons/icon-192x192.png',
             badge: '/icons/icon-192x192.png',
-            vibrate: [100, 50, 100],
+            vibrate: [200, 100, 200],
+            tag: data.tag || 'kaito-vision-notification',
+            renotify: true,
+            requireInteraction: true,
             data: {
                 url: data.url || '/'
-            }
+            },
+            actions: [
+                {
+                    action: 'open',
+                    title: 'Abrir'
+                },
+                {
+                    action: 'dismiss',
+                    title: 'Fechar'
+                }
+            ]
         };
 
         event.waitUntil(
@@ -79,7 +92,29 @@ self.addEventListener('push', function (event) {
 
 self.addEventListener('notificationclick', function (event) {
     event.notification.close();
+
+    // Handle action buttons
+    if (event.action === 'dismiss') {
+        return;
+    }
+
+    // Default action or 'open' action - open the URL
     event.waitUntil(
-        clients.openWindow(event.notification.data.url)
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+            // If a window is already open, focus it
+            for (const client of clientList) {
+                if (client.url.includes(self.location.origin) && 'focus' in client) {
+                    client.focus();
+                    if (event.notification.data.url) {
+                        client.navigate(event.notification.data.url);
+                    }
+                    return;
+                }
+            }
+            // Otherwise open a new window
+            if (clients.openWindow) {
+                return clients.openWindow(event.notification.data.url || '/');
+            }
+        })
     );
 });

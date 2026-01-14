@@ -1,0 +1,17 @@
+{
+    "css.validate": false,
+    "css.lint.unknownAtRules": "ignore",
+    "typescript.validate.enable": true,
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "files.exclude": {
+        "**/supabase/functions/**": false
+    },
+    "typescript.preferences.includePackageJsonAutoImports": "auto",
+    "[typescript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "deno.enablePaths": [
+        "supabase/functions"
+    ],
+    "deno.unstable": true
+}

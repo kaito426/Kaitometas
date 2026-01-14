@@ -10,8 +10,12 @@ import {
     CheckSquare,
     Settings,
     Target,
-    ListTodo
+    ListTodo,
+    Bell,
+    Zap
 } from "lucide-react";
+import { NotificationBell } from "./NotificationBell";
+import { GamificationBadge } from "./GamificationBadge";
 
 const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -21,6 +25,7 @@ const navItems = [
     { href: "/gastos", label: "Gastos", icon: Wallet },
     { href: "/tarefas", label: "Tarefas", icon: CheckSquare },
     { href: "/configuracoes", label: "Ajustes", icon: Settings },
+    { href: "/estrategia", label: "Estratégia", icon: Zap },
 ];
 
 export function Navigation() {
@@ -30,10 +35,15 @@ export function Navigation() {
         <>
             {/* Desktop Sidebar */}
             <aside className="hidden md:flex flex-col w-64 h-screen fixed left-0 top-0 bg-card/30 backdrop-blur-xl border-r border-white/5 p-6">
-                <div className="mb-10 px-2">
+                <div className="mb-8 px-2 flex items-center justify-between">
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
                         Kaito Vision
                     </h1>
+                    <NotificationBell />
+                </div>
+
+                <div className="px-2 mb-8">
+                    <GamificationBadge />
                 </div>
 
                 <nav className="space-y-2">
@@ -61,7 +71,7 @@ export function Navigation() {
             </aside>
 
             {/* Mobile Bottom Bar */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-card/80 backdrop-blur-2xl border-t border-white/5 flex items-center justify-around px-4 z-50">
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-card/80 backdrop-blur-2xl border-t border-white/5 flex items-center justify-around px-2 z-50">
                 {navItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = pathname === item.href;
@@ -75,11 +85,15 @@ export function Navigation() {
                                 isActive ? "text-primary" : "text-muted-foreground"
                             )}
                         >
-                            <Icon className={cn("w-6 h-6", isActive && "scale-110")} />
-                            <span className="text-[10px] font-medium uppercase tracking-wider">{item.label}</span>
+                            <Icon className={cn("w-5 h-5", isActive && "scale-110")} />
+                            <span className="text-[9px] font-medium uppercase tracking-wider">{item.label}</span>
                         </Link>
                     );
                 })}
+                <div className="flex flex-col items-center gap-1 p-2">
+                    <NotificationBell />
+                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Avisos</span>
+                </div>
             </nav>
         </>
     );

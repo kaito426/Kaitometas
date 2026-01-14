@@ -7,8 +7,18 @@ import { ObjectiveForm } from "@/components/ObjectiveForm";
 import { Plus, Target, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+interface Objective {
+    id: string;
+    name: string;
+    category: string;
+    is_monetary: boolean;
+    target_amount: number | null;
+    current_amount: number;
+    status: 'pending' | 'completed';
+}
+
 export default function ObjetivosPage() {
-    const [objectives, setObjectives] = useState<any[]>([]);
+    const [objectives, setObjectives] = useState<Objective[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
 

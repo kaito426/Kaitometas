@@ -9,13 +9,20 @@ import { useRouter } from "next/navigation";
 export default function SettingsPage() {
     const [webhookUrl, setWebhookUrl] = useState("");
     const [copied, setCopied] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
+        setMounted(true);
         // In a real production app, this would be your Vercel/Production URL
-        const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-        setWebhookUrl(`${baseUrl}/api/webhooks/lojou`);
+        if (typeof window !== "undefined") {
+            setWebhookUrl(`${window.location.origin}/api/webhooks/lojou`);
+        }
     }, []);
+
+    if (!mounted) {
+        return null;
+    }
 
     const copyToClipboard = () => {
         navigator.clipboard.writeText(webhookUrl);

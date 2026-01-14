@@ -32,9 +32,10 @@ export default function LoginPage() {
 
             console.log('Login successful, redirecting...');
             window.location.href = "/";
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Login error:', err);
-            setError(err.message || "Erro ao fazer login");
+            const errorMessage = err instanceof Error ? err.message : "Erro ao fazer login";
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
