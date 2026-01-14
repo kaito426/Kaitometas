@@ -33,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className="dark">
+    <html lang="pt-BR" className="dark" suppressHydrationWarning>
       <body className={cn(inter.className, "min-h-screen pb-20 md:pb-0 md:pl-64")}>
         <ServiceWorkerRegistrar />
         <Navigation />

@@ -5,8 +5,20 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function POST(req: Request) {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    let body: any = {};
+
     try {
-        const body = await req.json();
+        body = await req.json();
+
+        // Log the request for debugging
+        await supabase.from('webhook_logs').insert([
+            {
+                payload: body,
+                headers: Object.fromEntries(req.headers.entries()),
+                path: '/api/webhooks/lojou'
+            }
+        ]);
 
         // Lojou Webhook Fields
         const {
@@ -19,9 +31,10 @@ export async function POST(req: Request) {
         } = body;
 
         // MANDATORY: Only process approved sales
-        if (status === 'approved' || status === 'paid') {
-            const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        // Adding 'completed' and 'finalized' as potential statuses
+        const isApproved = ['approved', 'paid', 'completed', 'finalized'].includes(status?.toLowerCase());
 
+        if (isApproved) {
             // MANDATORY: Deduplication using order_number or transaction_id
             const externalId = order_number || transaction_id;
 
@@ -37,6 +50,15 @@ export async function POST(req: Request) {
                 }
             }
 
+            // Get the main user ID (Kaito)
+            const { data: goalData } = await supabase
+                .from('goals')
+                .select('user_id')
+                .eq('type', 'annual')
+                .single();
+
+            const userId = goalData?.user_id || 'a424fb0a-95a8-4c17-9d22-f40f23c2dee4';
+
             const { error } = await supabase.from('sales').insert([
                 {
                     amount: Number(amount),
@@ -44,6 +66,7 @@ export async function POST(req: Request) {
                     description: `Venda Lojou: ${product?.name || 'Produto'} (${customer?.email || 'Cliente'})`,
                     sale_date: new Date().toISOString(),
                     external_id: externalId,
+                    user_id: userId
                 },
             ]);
 
@@ -51,13 +74,7 @@ export async function POST(req: Request) {
 
             // Trigger Web Push Notification
             try {
-                const { data: goalData } = await supabase
-                    .from('goals')
-                    .select('user_id')
-                    .eq('type', 'annual')
-                    .single();
-
-                if (goalData?.user_id) {
+                if (userId) {
                     await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
                         method: 'POST',
                         headers: {
@@ -65,7 +82,7 @@ export async function POST(req: Request) {
                             'Authorization': `Bearer ${supabaseServiceKey}`
                         },
                         body: JSON.stringify({
-                            userId: goalData.user_id,
+                            userId: userId,
                             title: '💰 Venda Registrada!',
                             body: `Valor: ${amount} MZN - ${product?.name || 'Produto'}`,
                             url: '/vendas'
@@ -79,9 +96,19 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: true, message: 'Venda registrada com sucesso' });
         }
 
-        return NextResponse.json({ success: true, message: 'Status ignorado' });
+        return NextResponse.json({ success: true, message: `Status ignorado: ${status}` });
     } catch (error: any) {
         console.error('Webhook Error:', error);
+
+        // Log error even if processing fails
+        await supabase.from('webhook_logs').insert([
+            {
+                payload: { error: error.message, rawBody: body },
+                headers: Object.fromEntries(req.headers.entries()),
+                path: '/api/webhooks/lojou/error'
+            }
+        ]);
+
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kaito-vision-v1';
+const CACHE_NAME = 'kaito-vision-v3';
 const STATIC_ASSETS = [
     '/',
     '/manifest.json',
