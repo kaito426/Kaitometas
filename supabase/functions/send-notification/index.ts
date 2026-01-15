@@ -51,6 +51,9 @@ Deno.serve(async (req: Request) => {
         const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
         const adminEmail = Deno.env.get('ADMIN_EMAIL') || 'mailto:admin@example.com';
 
+        console.log('VAPID Public Key loaded:', vapidPublicKey ? `Yes (starts with ${vapidPublicKey.substring(0, 5)}...)` : 'No');
+        console.log('VAPID Private Key loaded:', vapidPrivateKey ? 'Yes' : 'No');
+
         if (!vapidPublicKey || !vapidPrivateKey) {
             return new Response(JSON.stringify({
                 success: true,

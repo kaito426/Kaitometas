@@ -30,11 +30,15 @@ export function PushNotificationManager() {
         setLoading(true);
         try {
             const registration = await navigator.serviceWorker.ready;
+            const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+            console.log("VAPID Key found:", vapidKey ? "Yes (starts with " + vapidKey.substring(0, 5) + "...)" : "No");
+
             const sub = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+                applicationServerKey: vapidKey,
             });
 
+            console.log("Push subscription successful:", sub.endpoint);
             setSubscription(sub);
 
             // Save subscription to Supabase
@@ -93,8 +97,19 @@ export function PushNotificationManager() {
                 })
             });
             const data = await response.json();
-            console.log('Test notification result:', data);
-            alert('Notificação enviada! Verifique se chegou.');
+            console.log('Test notification response:', data);
+
+            const hasErrors = data.results && data.results.some((r: any) => r.error);
+            const successCount = data.results ? data.results.filter((r: any) => r.status === 201).length : 0;
+
+            if (hasErrors) {
+                console.error('Push Service Errors:', data.results);
+                alert(`Resultado: ${successCount} sucesso(s), ${data.results.length - successCount} erro(s).\n\nDetalhes: ${JSON.stringify(data.results)}`);
+            } else if (successCount > 0) {
+                alert(`Notificação enviada com sucesso para ${successCount} dispositivo(s)!`);
+            } else {
+                alert('Nenhum dispositivo encontrado ou erro desconhecido: ' + JSON.stringify(data));
+            }
         } catch (error) {
             console.error('Failed to send test notification:', error);
             alert('Erro ao enviar notificação de teste.');

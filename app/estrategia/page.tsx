@@ -80,11 +80,27 @@ export default function StrategyPage() {
                     className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar"
                 >
                     {messages.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-50">
+                        <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
                             <ShieldAlert className="w-16 h-16 text-white/20" />
-                            <div className="max-w-xs">
-                                <p className="text-sm font-medium text-white">O QG está pronto.</p>
-                                <p className="text-xs text-muted-foreground">Qual o problema ou meta que precisamos atacar hoje?</p>
+                            <div className="max-w-xs space-y-4">
+                                <div>
+                                    <p className="text-sm font-medium text-white">O QG está pronto.</p>
+                                    <p className="text-xs text-muted-foreground">Qual o problema ou meta que precisamos atacar hoje?</p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setInput("Gere um relatório diário completo com base nos meus dados de hoje. Foco em vendas, gastos e tarefas.");
+                                        // Trigger send immediately
+                                        setTimeout(() => {
+                                            const form = document.querySelector('form');
+                                            if (form) form.requestSubmit();
+                                        }, 100);
+                                    }}
+                                    className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-xs font-bold transition-colors flex items-center gap-2 mx-auto"
+                                >
+                                    <History className="w-4 h-4" />
+                                    Gerar Relatório Diário
+                                </button>
                             </div>
                         </div>
                     ) : (
